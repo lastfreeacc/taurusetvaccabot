@@ -9,11 +9,12 @@ type Update struct {
 // Message ...
 type Message struct {
 	MessageID int64    `json:"message_id"`
-	From      User     `json:"from"`
+	From      User     `json:"from,omitempty"`
 	Date      int64    `json:"date"`
 	Chat      Chat     `json:"chat"`
-	Text      string   `json:"text"`
-	Entities  []Entity `json:"entities"`
+	Text      string   `json:"text,omitempty"`
+	Entities  []Entity `json:"entities,omitempty"`
+	Contact   Contact  `json:"contact,omitempty"`
 }
 
 // User ...
@@ -127,4 +128,12 @@ type InlineKeyboardButton struct {
 // InlineKeyboardMarkup ...
 type InlineKeyboardMarkup struct {
 	InlineKeyboard [][]InlineKeyboardButton `json:"inline_keyboard"`
+}
+
+// Contact represents a phone contact.
+type Contact struct {
+	PhoneNumber string `json:"phone_number"`
+	FirstName   string `json:"first_name"`
+	LastName    string `json:"last_name,omitempty"`
+	UserID      int64  `json:"user_id,omitempty"`
 }
