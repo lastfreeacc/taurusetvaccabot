@@ -2,8 +2,9 @@ package teleapi
 
 // Update ...
 type Update struct {
-	UpdateID int64   `json:"update_id"`
-	Message  Message `json:"message"`
+	UpdateID      int64         `json:"update_id"`
+	Message       Message       `json:"message,omitempty"`
+	CallbackQuery CallbackQuery `json:"callback_query,omitempty"`
 }
 
 // Message ...
@@ -15,6 +16,20 @@ type Message struct {
 	Text      string   `json:"text,omitempty"`
 	Entities  []Entity `json:"entities,omitempty"`
 	Contact   Contact  `json:"contact,omitempty"`
+}
+
+// CallbackQuery represents an incoming callback query from a callback button in an inline keyboard.
+// If the button that originated the query was attached to a message sent by the bot, the field message will be present.
+// If the button was attached to a message sent via the bot (in inline mode), the field inline_message_id will be present.
+// Exactly one of the fields data or game_short_name will be present
+type CallbackQuery struct {
+	ID              string  `json:"id"`
+	From            User    `json:"from"`
+	Message         Message `json:"Message,omitempty"`
+	InlineMessageID string  `json:"inline_message_id,omitempy"`
+	ChatInstance    string  `json:"chat_instance,omitempty"`
+	Data            string  `json:"data,omitempty"`
+	GameShortName   string  `json:"game_short_name,omitempty"`
 }
 
 // User ...
@@ -96,7 +111,9 @@ type SendMessageReq struct {
 	ReplyMarkup           interface{} `json:"reply_markup,omitempty"`
 }
 
-// KeyboardButton represents one button of the reply keyboard. For simple text buttons String can be used instead of this object to specify text of the button. Optional fields are mutually exclusive.
+// KeyboardButton represents one button of the reply keyboard.
+// For simple text buttons String can be used instead of this object to specify text of the button.
+// Optional fields are mutually exclusive.
 type KeyboardButton struct {
 	Text            string `json:"text"`
 	RequestContact  bool   `json:"request_contact,omitempty"`
