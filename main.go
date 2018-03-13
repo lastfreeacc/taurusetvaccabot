@@ -29,6 +29,16 @@ var (
 
 func main() {
 	myInit()
+	startc := make(chan *teleapi.Update, 10)
+	go startWorker(startc)
+	
+	rulesc := make(chan *teleapi.Update, 10)
+	go rulesWorker(rulesc)
+
+	gamec := make(chan *teleapi.Update, 10)
+	go gameWorker(gamec)
+
+	
 	upCh := bot.Listen()
 	for update := range upCh {
 		log.Printf("[Debug] update message is: %#v\n", update)
@@ -39,10 +49,16 @@ func main() {
 		cmd := cmd(update.Message.Text)
 		switch cmd {
 		case startCmd:
-			doStart(update)
+			startc <- update
 		case rulesCmd:
-			doRules(update)
+			rulesc <- update
 		}
+	}
+}
+
+func startWorker(updatec chan *teleapi.Update) {
+	for update := range updatec {
+		doStart(update)
 	}
 }
 
@@ -53,6 +69,12 @@ func doStart(update *teleapi.Update) {
 	bot.SendMessage(req)
 }
 
+func rulesWorker(updatec chan *teleapi.Update) {
+	for update := range updatec {
+		doRules(update)
+	}
+}
+
 func doRules(update *teleapi.Update) {
 	msg := fmt.Sprint(
 		`Rules...`)
@@ -60,6 +82,9 @@ func doRules(update *teleapi.Update) {
 	bot.SendMessage(req)
 }
 
+func gameWorker(updatec chan *teleapi.Update) {
+
+}
 func doGame(update *teleapi.Update) {
 	contact := update.Message.Contact
 	if contact.UserID == 0 {
