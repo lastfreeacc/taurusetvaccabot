@@ -28,6 +28,7 @@ var (
 	botToken string
 	bot      teleapi.Bot
 	merory   = store.NewInMemory()
+	gamers   = make(map[int64]chan *teleapi.Update)
 )
 
 func main() {
@@ -51,6 +52,11 @@ func main() {
 		case "r":
 			rulesCh <- update
 		default:
+			fromID := update.Message.From.ID
+			if ch, ok := gamers[fromID]; ok {
+				ch <- update
+				continue
+			}
 			if update.Message.Contact != (teleapi.Contact{}) {
 				doGame(update)
 				continue
@@ -99,18 +105,22 @@ func doGame(update *teleapi.Update) {
 	}
 	ownerID := update.Message.From.ID
 	callerID := contact.UserID
-	gameData := &store.Game{
-		OwnerID:  ownerID,
-		CallerID: callerID,
-	}
-	gameData = merory.SaveGame(gameData)
-	game, err := game.New(bot, ownerID, callerID)
+	ownerCh := make(chan *teleapi.Update, 10)
+	callerCh := make(chan *teleapi.Update, 10)
+	gamers[ownerID] = ownerCh
+	gamers[callerID] = callerCh
+	// gameData := &store.Game{
+	// 	OwnerID:  ownerID,
+	// 	CallerID: callerID,
+	// }
+	// gameData = merory.SaveGame(gameData)
+	game, err := game.New(bot, ownerID, callerID, ownerCh, callerCh)
 	if err != nil {
 		log.Printf("[Warning] can not create game for owner and caller (%d, %d)\n", ownerID, callerID)
 		log.Printf("[Warning] error is: %s\n", err)
 		// TODO: need to notify about error to users
 	}
-	game.Play()
+	go game.Play()
 	sendGameRequest(update)
 }
 

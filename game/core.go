@@ -17,17 +17,40 @@ type game struct {
 	bot      teleapi.Bot
 	ownerID  int64
 	callerID int64
-	gameCh   chan *teleapi.Update
+	ownerCh  chan *teleapi.Update
+	callerCh chan *teleapi.Update
 }
 
-func (g game) Play() {
-	ownderCh := make(chan string)
-	callerCh := make(chan string)
+func (g *game) Play() {
+	ownderCh := make(chan string, 10)
+	callerCh := make(chan string, 10)
 	go g.toOwnerSender(ownderCh)
 	go g.toCallerSender(callerCh)
 
 	ownderCh <- "загадай четырехзначное число"
 	callerCh <- "загадай четырехзначное число"
+
+	go func() {
+		for u := range g.ownerCh {
+			if isValidNumber(u.Message.Text) {
+				break
+			}
+			ownderCh <- "wrong number"
+			continue
+		}
+	}()
+	go func() {
+		for u := range g.callerCh {
+			if isValidNumber(u.Message.Text) {
+				break
+			}
+			callerCh <- "wrong number"
+			continue
+		}
+	}()
+
+	// all ok!
+	// lets game starts!!!
 
 }
 
@@ -40,7 +63,7 @@ var (
 )
 
 // New creates Game
-func New(bot teleapi.Bot, ownerID, callerID int64, gameCh chan *teleapi.Update) (Game, error) {
+func New(bot teleapi.Bot, ownerID, callerID int64, ownerCh chan *teleapi.Update, callerCh chan *teleapi.Update) (Game, error) {
 	if ownerID == 0 {
 		log.Printf("[Warning] ownerID == 0")
 		return nil, ErrBadUserID
@@ -49,7 +72,7 @@ func New(bot teleapi.Bot, ownerID, callerID int64, gameCh chan *teleapi.Update) 
 		log.Printf("[Warning] callerID == 0")
 		return nil, ErrBadUserID
 	}
-	return game{bot: bot, ownerID: ownerID, callerID: callerID, gameCh: gameCh}, nil
+	return &game{bot: bot, ownerID: ownerID, callerID: callerID, ownerCh: ownerCh, callerCh: callerCh}, nil
 }
 
 func countTandC(str string) (t, c int, err error) {
@@ -101,33 +124,33 @@ func sendToPleer(bot teleapi.Bot, pleerID int64, msg string) {
 
 // }
 
-func (g game) toOwnerSender(c chan string) {
+func (g *game) toOwnerSender(c chan string) {
 	for {
 		msg := <-c
 		sendToPleer(g.bot, g.ownerID, msg)
 	}
 }
 
-func (g game) toCallerSender(c chan string) {
+func (g *game) toCallerSender(c chan string) {
 	for {
 		msg := <-c
 		sendToPleer(g.bot, g.callerID, msg)
 	}
 }
 
-func (g game) Listen() {
-	go func() {
-		for {
-			u := <-g.gameCh
-			switch u.Message.From.ID {
-			case g.ownerID:
-				break
-			case g.callerID:
-				break
-			default:
-				log.Printf("[Warning] strange Message.From.ID:%d, it is not owner:%d or caller:%d\n", u.Message.From.ID, g.ownerID, g.callerID)
-				log.Printf("[Data] original Update is:%v\n", u)
-			}
-		}
-	}()
-}
+// func (g game) Listen() {
+// 	go func() {
+// 		for {
+// 			u := <-g.gameCh
+// 			switch u.Message.From.ID {
+// 			case g.ownerID:
+// 				break
+// 			case g.callerID:
+// 				break
+// 			default:
+// 				log.Printf("[Warning] strange Message.From.ID:%d, it is not owner:%d or caller:%d\n", u.Message.From.ID, g.ownerID, g.callerID)
+// 				log.Printf("[Data] original Update is:%v\n", u)
+// 			}
+// 		}
+// 	}()
+// }
