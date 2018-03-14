@@ -2,7 +2,7 @@ package store
 
 type User struct {
 	telegramProfile TelegramProfile
-	gameProfile     GameProfile
+	// gameProfile     GameProfile
 }
 
 type TelegramProfile struct {
@@ -12,6 +12,17 @@ type TelegramProfile struct {
 	UserName  string
 }
 
-type GameProfile struct {
-	BotTelegramChatID int64
+// type GameProfile struct {
+// 	BotTelegramChatID int64
+// }
+
+type Game struct {
+	ID       int64
+	OwnerID  int64
+	CallerID int64
+}
+
+type Store interface {
+	SaveGame(g *Game) *Game
+	SaveUser(u *User)
 }

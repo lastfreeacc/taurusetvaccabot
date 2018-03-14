@@ -6,6 +6,8 @@ import (
 	"io/ioutil"
 	"log"
 
+	"github.com/lastfreeacc/taurusetvaccabot/game"
+	"github.com/lastfreeacc/taurusetvaccabot/store"
 	"github.com/lastfreeacc/taurusetvaccabot/teleapi"
 )
 
@@ -25,20 +27,21 @@ var (
 	conf     = make(map[string]interface{})
 	botToken string
 	bot      teleapi.Bot
+	merory   = store.NewInMemory()
 )
 
 func main() {
 	myInit()
-	startc := make(chan *teleapi.Update, 10)
-	go startWorker(startc)
-	
-	rulesc := make(chan *teleapi.Update, 10)
-	go rulesWorker(rulesc)
 
-	gamec := make(chan *teleapi.Update, 10)
-	go gameWorker(gamec)
+	startCh := make(chan *teleapi.Update, 10)
+	go startWorker(startCh)
 
-	
+	rulesCh := make(chan *teleapi.Update, 10)
+	go rulesWorker(rulesCh)
+
+	gameCh := make(chan *teleapi.Update, 10)
+	go gameWorker(gameCh)
+
 	upCh := bot.Listen()
 	for update := range upCh {
 		log.Printf("[Debug] update message is: %#v\n", update)
@@ -49,15 +52,15 @@ func main() {
 		cmd := cmd(update.Message.Text)
 		switch cmd {
 		case startCmd:
-			startc <- update
+			startCh <- update
 		case rulesCmd:
-			rulesc <- update
+			rulesCh <- update
 		}
 	}
 }
 
-func startWorker(updatec chan *teleapi.Update) {
-	for update := range updatec {
+func startWorker(updateCh chan *teleapi.Update) {
+	for update := range updateCh {
 		doStart(update)
 	}
 }
@@ -69,8 +72,8 @@ func doStart(update *teleapi.Update) {
 	bot.SendMessage(req)
 }
 
-func rulesWorker(updatec chan *teleapi.Update) {
-	for update := range updatec {
+func rulesWorker(updateCh chan *teleapi.Update) {
+	for update := range updateCh {
 		doRules(update)
 	}
 }
@@ -82,15 +85,32 @@ func doRules(update *teleapi.Update) {
 	bot.SendMessage(req)
 }
 
-func gameWorker(updatec chan *teleapi.Update) {
+func gameWorker(updateCh chan *teleapi.Update) {
 
 }
 func doGame(update *teleapi.Update) {
+	// game starts with sending Contact message
+	// TODO: need to start with command with @username (need to test on telegram)
+
 	contact := update.Message.Contact
 	if contact.UserID == 0 {
 		sendContactIsNotTelegramUser(update.Message.Chat.ID, contact)
 		return
 	}
+	ownerID := update.Message.From.ID
+	callerID := contact.UserID
+	gameData := &store.Game{
+		OwnerID:  ownerID,
+		CallerID: callerID,
+	}
+	gameData = merory.SaveGame(gameData)
+	game, err := game.New(bot, ownerID, callerID)
+	if err != nil {
+		log.Printf("[Warning] can not create game for owner and caller (%d, %d)\n", ownerID, callerID)
+		log.Printf("[Warning] error is: %s\n", err)
+		// TODO: need to notify about error to users
+	}
+	game.Play()
 	sendGameRequest(update)
 }
 
@@ -111,7 +131,7 @@ func sendContactIsNotTelegramUser(chatID int64, contact teleapi.Contact) {
 	if userFullName == "" {
 		userFullName = "unknown"
 	}
-	msg := fmt.Sprintf("%s is not telegram user\n", userFullName)
+	msg := fmt.Sprintf("Sorry, %s is not telegram user", userFullName)
 	req := teleapi.SendMessageReq{ChatID: chatID, Text: msg}
 	bot.SendMessage(req)
 }
@@ -120,7 +140,7 @@ func sendGameRequest(update *teleapi.Update) {
 	keyboard := yesNoKeyboard()
 	req := teleapi.SendMessageReq{
 		ChatID:      update.Message.Contact.UserID,
-		Text:        update.Message.From.FirstName + " invites in bulls and cows game",
+		Text:        update.Message.From.FirstName + " invites you in bulls and cows game\nGo?",
 		ReplyMarkup: keyboard,
 	}
 	bot.SendMessage(req)
