@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strings"
 )
 
 type method string
@@ -122,4 +123,18 @@ func doUpdates(bot *bot, updateCh chan<- *Update) {
 		}
 
 	}
+}
+
+// Command ...
+func (m *Message) Command() string {
+	if !strings.HasPrefix(m.Text, "/") {
+		return ""
+	}
+	ar := strings.Split(m.Text, " ")
+	cmd := ar[0]
+	if !strings.Contains(cmd, "@") {
+		return cmd[1:]
+	}
+	lst := strings.Index(cmd, "@")
+	return cmd[1:lst]
 }

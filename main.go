@@ -45,16 +45,16 @@ func main() {
 	upCh := bot.Listen()
 	for update := range upCh {
 		log.Printf("[Debug] update message is: %#v\n", update)
-		if update.Message.Contact != (teleapi.Contact{}) {
-			doGame(update)
-			continue
-		}
-		cmd := cmd(update.Message.Text)
-		switch cmd {
-		case startCmd:
+		switch update.Message.Command() {
+		case "start":
 			startCh <- update
-		case rulesCmd:
+		case "r":
 			rulesCh <- update
+		default:
+			if update.Message.Contact != (teleapi.Contact{}) {
+				doGame(update)
+				continue
+			}
 		}
 	}
 }
