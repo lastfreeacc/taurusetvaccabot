@@ -2,8 +2,10 @@ package game
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"strconv"
+	"time"
 
 	"github.com/lastfreeacc/taurusetvaccabot/teleapi"
 )
@@ -22,12 +24,12 @@ type game struct {
 }
 
 func (g *game) Play() {
-	ownderCh := make(chan string, 10)
+	ownerCh := make(chan string, 10)
 	callerCh := make(chan string, 10)
-	go g.toOwnerSender(ownderCh)
+	go g.toOwnerSender(ownerCh)
 	go g.toCallerSender(callerCh)
 
-	ownderCh <- "загадай четырехзначное число"
+	ownerCh <- "загадай четырехзначное число"
 	callerCh <- "загадай четырехзначное число"
 
 	go func() {
@@ -35,7 +37,7 @@ func (g *game) Play() {
 			if isValidNumber(u.Message.Text) {
 				break
 			}
-			ownderCh <- "wrong number"
+			ownerCh <- "wrong number"
 			continue
 		}
 	}()
@@ -51,6 +53,63 @@ func (g *game) Play() {
 
 	// all ok!
 	// lets game starts!!!
+	// owner goes first
+	// TODO: throw dice
+
+	isOwnerMove := true
+	// true - owners move
+	// false - caller move
+	ownerCh <- "your move"
+	callerCh <- "opponents move"
+	timeout := time.After(20 * time.Minute)
+	for {
+		select {
+		case update := <-g.ownerCh:
+			if !isOwnerMove {
+				ownerCh <- "not your turn"
+				continue
+			}
+			if !isValidNumber(update.Message.Text) {
+				ownerCh <- "not valid numbrer\ntry again"
+				continue
+			}
+			t, c, err := countTandC(update.Message.Text)
+			if err != nil {
+				// TODO: ???
+			}
+			if t == 4 {
+				ownerCh <- "you win"
+				callerCh <- "you lose"
+				break
+			}
+			msg := fmt.Sprintf("t: %d, c: %d", t, c)
+			ownerCh <- msg
+		case update := <-g.callerCh:
+			if isOwnerMove {
+				callerCh <- "not your turn"
+				continue
+			}
+			if !isValidNumber(update.Message.Text) {
+				callerCh <- "not valid numbrer\ntry again"
+				continue
+			}
+			t, c, err := countTandC(update.Message.Text)
+			if err != nil {
+				// TODO: ???
+			}
+			if t == 4 {
+				callerCh <- "you win"
+				ownerCh <- "you lose"
+				break
+			}
+			msg := fmt.Sprintf("t: %d, c: %d", t, c)
+			callerCh <- msg
+		case <-timeout:
+			ownerCh <- "timeout"
+			callerCh <- "timeout"
+			break
+		}
+	}
 
 }
 
