@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/lastfreeacc/taurusetvaccabot/teleapi"
@@ -16,11 +17,13 @@ type Game interface {
 }
 
 type game struct {
-	bot      teleapi.Bot
-	ownerID  int64
-	callerID int64
-	ownerCh  chan *teleapi.Update
-	callerCh chan *teleapi.Update
+	bot          teleapi.Bot
+	ownerID      int64
+	callerID     int64
+	ownerNumber  string
+	callerNumber string
+	ownerCh      chan *teleapi.Update
+	callerCh     chan *teleapi.Update
 }
 
 func (g *game) Play() {
@@ -31,10 +34,13 @@ func (g *game) Play() {
 
 	ownerCh <- "загадай четырехзначное число"
 	callerCh <- "загадай четырехзначное число"
-
+	var wg sync.WaitGroup
+	wg.Add(2)
 	go func() {
 		for u := range g.ownerCh {
 			if isValidNumber(u.Message.Text) {
+				g.ownerNumber = u.Message.Text
+				wg.Done()
 				break
 			}
 			ownerCh <- "wrong number"
@@ -44,13 +50,15 @@ func (g *game) Play() {
 	go func() {
 		for u := range g.callerCh {
 			if isValidNumber(u.Message.Text) {
+				g.callerNumber = u.Message.Text
+				wg.Done()
 				break
 			}
 			callerCh <- "wrong number"
 			continue
 		}
 	}()
-
+	wg.Wait()
 	// all ok!
 	// lets game starts!!!
 	// owner goes first
@@ -73,16 +81,14 @@ func (g *game) Play() {
 				ownerCh <- "not valid numbrer\ntry again"
 				continue
 			}
-			t, c, err := countTandC(update.Message.Text)
-			if err != nil {
-				// TODO: ???
-			}
+			t, c := countTandC(g.ownerNumber, update.Message.Text)
 			if t == 4 {
 				ownerCh <- "you win"
 				callerCh <- "you lose"
 				break
 			}
 			msg := fmt.Sprintf("t: %d, c: %d", t, c)
+			isOwnerMove = !isOwnerMove
 			ownerCh <- msg
 		case update := <-g.callerCh:
 			if isOwnerMove {
@@ -93,16 +99,14 @@ func (g *game) Play() {
 				callerCh <- "not valid numbrer\ntry again"
 				continue
 			}
-			t, c, err := countTandC(update.Message.Text)
-			if err != nil {
-				// TODO: ???
-			}
+			t, c := countTandC(g.callerNumber, update.Message.Text)
 			if t == 4 {
 				callerCh <- "you win"
 				ownerCh <- "you lose"
 				break
 			}
 			msg := fmt.Sprintf("t: %d, c: %d", t, c)
+			isOwnerMove = !isOwnerMove
 			callerCh <- msg
 		case <-timeout:
 			ownerCh <- "timeout"
@@ -134,13 +138,20 @@ func New(bot teleapi.Bot, ownerID, callerID int64, ownerCh chan *teleapi.Update,
 	return &game{bot: bot, ownerID: ownerID, callerID: callerID, ownerCh: ownerCh, callerCh: callerCh}, nil
 }
 
-func countTandC(str string) (t, c int, err error) {
-	_, err = strconv.Atoi(str)
-	if err != nil {
-		return 0, 0, err
+func countTandC(n1, n2 string) (t, c int) {
+	for i, d1 := range n1 {
+		for j, d2 := range n2 {
+			if d1 == d2 {
+				if i == j {
+					t++
+				} else {
+					c++
+				}
+				continue
+			}
+		}
 	}
-	// TODO: need to implement
-	return 0, 0, nil
+	return
 }
 
 func isValidNumber(str string) bool {
@@ -179,10 +190,6 @@ func sendToPleer(bot teleapi.Bot, pleerID int64, msg string) {
 	bot.SendMessage(req)
 }
 
-// func readFromPleer() {
-
-// }
-
 func (g *game) toOwnerSender(c chan string) {
 	for {
 		msg := <-c
@@ -196,20 +203,3 @@ func (g *game) toCallerSender(c chan string) {
 		sendToPleer(g.bot, g.callerID, msg)
 	}
 }
-
-// func (g game) Listen() {
-// 	go func() {
-// 		for {
-// 			u := <-g.gameCh
-// 			switch u.Message.From.ID {
-// 			case g.ownerID:
-// 				break
-// 			case g.callerID:
-// 				break
-// 			default:
-// 				log.Printf("[Warning] strange Message.From.ID:%d, it is not owner:%d or caller:%d\n", u.Message.From.ID, g.ownerID, g.callerID)
-// 				log.Printf("[Data] original Update is:%v\n", u)
-// 			}
-// 		}
-// 	}()
-// }
