@@ -24,44 +24,40 @@ func Test_countTandC(t *testing.T) {
 	}
 	tests := []struct {
 		name  string
-		args  args
+		n1    string
+		n2    string
 		wantT int
 		wantC int
 	}{
 		{"t1",
-			args{
-				"1234",
-				"1243"},
+			"1234",
+			"1243",
 			2,
 			2},
 		{"t2",
-			args{
-				"1357",
-				"1357"},
+			"1357",
+			"1357",
 			4,
 			0},
 		{"t3",
-			args{
-				"1357",
-				"2468"},
+			"1357",
+			"2468",
 			0,
 			0},
 		{"t4",
-			args{
-				"1245",
-				"3278"},
+			"1245",
+			"3278",
 			1,
 			0},
 		{"t5",
-			args{
-				"1234",
-				"4320"},
+			"12344",
+			"4320",
 			0,
 			3},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotT, gotC := countTandC(tt.args.n1, tt.args.n2)
+			gotT, gotC := countTandC(tt.n1, tt.n2)
 			if gotT != tt.wantT {
 				t.Errorf("countTandC() gotT = %v, want %v", gotT, tt.wantT)
 			}
