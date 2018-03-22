@@ -121,7 +121,6 @@ func doGame(update *teleapi.Update) {
 		// TODO: need to notify about error to users
 	}
 	go game.Play()
-	sendGameRequest(update)
 }
 
 func sendContactIsNotTelegramUser(chatID int64, contact teleapi.Contact) {
@@ -146,30 +145,6 @@ func sendContactIsNotTelegramUser(chatID int64, contact teleapi.Contact) {
 	bot.SendMessage(req)
 }
 
-func sendGameRequest(update *teleapi.Update) {
-	keyboard := yesNoKeyboard()
-	req := teleapi.SendMessageReq{
-		ChatID:      update.Message.Contact.UserID,
-		Text:        update.Message.From.FirstName + " invites you in bulls and cows game\nGo?",
-		ReplyMarkup: keyboard,
-	}
-	bot.SendMessage(req)
-}
-
-func yesNoKeyboard() *teleapi.InlineKeyboardMarkup {
-	yes := teleapi.InlineKeyboardButton{
-		Text:         "Yes",
-		CallbackData: "Yes",
-	}
-	no := teleapi.InlineKeyboardButton{
-		Text:         "No",
-		CallbackData: "No",
-	}
-	keyboard := [][]teleapi.InlineKeyboardButton{{yes, no}}
-	return &teleapi.InlineKeyboardMarkup{
-		InlineKeyboard: keyboard,
-	}
-}
 func myInit() {
 	readMapFromJSON(confFilename, &conf)
 	botToken, ok := conf["botToken"]

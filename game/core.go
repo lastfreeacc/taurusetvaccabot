@@ -32,6 +32,10 @@ func (g *game) Play() {
 	go g.toOwnerSender(ownerCh)
 	go g.toCallerSender(callerCh)
 
+	sendGameRequest(g.bot, g.ownerID)
+
+	// TODO: need to process yes/no answer
+
 	ownerCh <- "загадай четырехзначное число"
 	callerCh <- "загадай четырехзначное число"
 	var wg sync.WaitGroup
@@ -176,7 +180,6 @@ func isValidNumber(str string) bool {
 }
 
 // func (g game) diceFirstMove() bool {
-// 	Rando
 // }
 
 func sendToPleer(bot teleapi.Bot, pleerID int64, msg string) {
@@ -201,5 +204,30 @@ func (g *game) toCallerSender(c chan string) {
 	for {
 		msg := <-c
 		sendToPleer(g.bot, g.callerID, msg)
+	}
+}
+
+func sendGameRequest(bot teleapi.Bot, callerID int64) {
+	keyboard := yesNoKeyboard()
+	req := teleapi.SendMessageReq{
+		ChatID:      callerID,
+		Text:        "You friend invites you in bulls and cows game\nGo?",
+		ReplyMarkup: keyboard,
+	}
+	bot.SendMessage(req)
+}
+
+func yesNoKeyboard() *teleapi.InlineKeyboardMarkup {
+	yes := teleapi.InlineKeyboardButton{
+		Text:         "Yes",
+		CallbackData: "Yes",
+	}
+	no := teleapi.InlineKeyboardButton{
+		Text:         "No",
+		CallbackData: "No",
+	}
+	keyboard := [][]teleapi.InlineKeyboardButton{{yes, no}}
+	return &teleapi.InlineKeyboardMarkup{
+		InlineKeyboard: keyboard,
 	}
 }
