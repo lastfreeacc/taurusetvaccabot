@@ -53,7 +53,14 @@ func main() {
 			rulesCh <- update
 		default:
 			fromID := update.Message.From.ID
+			if fromID == 0 {
+				fromID = update.CallbackQuery.From.ID
+			}
+			log.Printf("[Debug] gamer is %s\n", update.Message.From.FirstName)
+			_, ok := gamers[fromID]
+			log.Printf("[Debug] ok is %t\n", ok)
 			if ch, ok := gamers[fromID]; ok {
+
 				ch <- update
 				continue
 			}

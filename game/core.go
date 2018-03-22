@@ -32,7 +32,19 @@ func (g *game) Play() {
 	go g.toOwnerSender(ownerCh)
 	go g.toCallerSender(callerCh)
 
-	sendGameRequest(g.bot, g.ownerID)
+	sendGameRequest(g.bot, g.callerID)
+	for u := range g.callerCh {
+		if u.CallbackQuery.Data == "" {
+			continue
+		}
+		if u.CallbackQuery.Data == "No" {
+			ownerCh <- "u friend decline call"
+			return
+		}
+		if u.CallbackQuery.Data == "Yes" {
+			break
+		}
+	}
 
 	// TODO: need to process yes/no answer
 
