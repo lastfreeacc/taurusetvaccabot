@@ -127,7 +127,7 @@ func doGame(update *teleapi.Update) {
 		log.Printf("[Warning] error is: %s\n", err)
 		// TODO: need to notify about error to users
 	}
-	go game.Play()
+	go game.Play(gamers)
 }
 
 func sendContactIsNotTelegramUser(chatID int64, contact teleapi.Contact) {

@@ -13,7 +13,7 @@ import (
 
 // Game ...
 type Game interface {
-	Play()
+	Play(gamers map[int64]chan *teleapi.Update)
 }
 
 type game struct {
@@ -26,7 +26,7 @@ type game struct {
 	callerCh     chan *teleapi.Update
 }
 
-func (g *game) Play() {
+func (g *game) Play(gamers map[int64]chan *teleapi.Update) {
 	ownerCh := make(chan string, 10)
 	callerCh := make(chan string, 10)
 	go g.toOwnerSender(ownerCh)
@@ -85,7 +85,8 @@ func (g *game) Play() {
 	// false - caller move
 	ownerCh <- "your move"
 	callerCh <- "opponents move"
-	timeout := time.After(20 * time.Minute)
+	// timeout :=
+	timer := time.NewTimer(20 * time.Minute)
 	for {
 		select {
 		case update := <-g.ownerCh:
@@ -97,15 +98,19 @@ func (g *game) Play() {
 				ownerCh <- "not valid numbrer\ntry again"
 				continue
 			}
-			t, c := countTandC(g.ownerNumber, update.Message.Text)
+			t, c := countTandC(g.callerNumber, update.Message.Text)
 			if t == 4 {
 				ownerCh <- "you win"
 				callerCh <- "you lose"
+				delete(gamers, g.ownerID)
+				delete(gamers, g.callerID)
+				timer.Stop()
 				break
 			}
 			msg := fmt.Sprintf("t: %d, c: %d", t, c)
 			isOwnerMove = !isOwnerMove
 			ownerCh <- msg
+			callerCh <- "now your turn"
 		case update := <-g.callerCh:
 			if isOwnerMove {
 				callerCh <- "not your turn"
@@ -115,18 +120,25 @@ func (g *game) Play() {
 				callerCh <- "not valid numbrer\ntry again"
 				continue
 			}
-			t, c := countTandC(g.callerNumber, update.Message.Text)
+			t, c := countTandC(g.ownerNumber, update.Message.Text)
 			if t == 4 {
 				callerCh <- "you win"
 				ownerCh <- "you lose"
+				delete(gamers, g.ownerID)
+				delete(gamers, g.callerID)
+				timer.Stop()
 				break
 			}
 			msg := fmt.Sprintf("t: %d, c: %d", t, c)
 			isOwnerMove = !isOwnerMove
 			callerCh <- msg
-		case <-timeout:
+			ownerCh <- "now your move"
+		case <-timer.C:
 			ownerCh <- "timeout"
 			callerCh <- "timeout"
+			delete(gamers, g.ownerID)
+			delete(gamers, g.callerID)
+			timer.Stop()
 			break
 		}
 	}
