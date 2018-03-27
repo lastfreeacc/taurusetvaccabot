@@ -11,6 +11,11 @@ import (
 	"github.com/lastfreeacc/taurusetvaccabot/teleapi"
 )
 
+const (
+	ox  = rune(128003)
+	cow = rune(128004)
+)
+
 // Game ...
 type Game interface {
 	Play(gamers map[int64]chan *teleapi.Update)
@@ -102,12 +107,13 @@ func (g *game) Play(gamers map[int64]chan *teleapi.Update) {
 			if t == 4 {
 				ownerCh <- "you win"
 				callerCh <- "you lose"
+				callerCh <- "number was: " + g.ownerNumber
 				delete(gamers, g.ownerID)
 				delete(gamers, g.callerID)
 				timer.Stop()
 				break
 			}
-			msg := fmt.Sprintf("t: %d, c: %d", t, c)
+			msg := fmt.Sprintf(string(ox)+" %d "+string(cow)+" %d", t, c)
 			isOwnerMove = !isOwnerMove
 			ownerCh <- msg
 			callerCh <- "now your turn"
@@ -124,12 +130,13 @@ func (g *game) Play(gamers map[int64]chan *teleapi.Update) {
 			if t == 4 {
 				callerCh <- "you win"
 				ownerCh <- "you lose"
+				ownerCh <- "number was: " + g.callerNumber
 				delete(gamers, g.ownerID)
 				delete(gamers, g.callerID)
 				timer.Stop()
 				break
 			}
-			msg := fmt.Sprintf("t: %d, c: %d", t, c)
+			msg := fmt.Sprintf(string(ox)+" %d "+string(cow)+" %d", t, c)
 			isOwnerMove = !isOwnerMove
 			callerCh <- msg
 			ownerCh <- "now your move"
