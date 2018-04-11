@@ -17,7 +17,7 @@ func Test_isValidNumber(t *testing.T) {
 	}
 }
 
-func Test_countTandC(t *testing.T) {
+func Test_countTandV(t *testing.T) {
 	type args struct {
 		n1 string
 		n2 string
@@ -57,7 +57,7 @@ func Test_countTandC(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotT, gotC := countTandC(tt.n1, tt.n2)
+			gotT, gotC := countTandV(tt.n1, tt.n2)
 			if gotT != tt.wantT {
 				t.Errorf("countTandC() gotT = %v, want %v", gotT, tt.wantT)
 			}

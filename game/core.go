@@ -23,8 +23,8 @@ type Game interface {
 
 type game struct {
 	bot          teleapi.Bot
-	ownerID      int64
-	callerID     int64
+	owner        teleapi.User
+	caller       teleapi.User
 	ownerNumber  string
 	callerNumber string
 	ownerCh      chan *teleapi.Update
@@ -37,13 +37,13 @@ func (g *game) Play(gamers map[int64]chan *teleapi.Update) {
 	go g.toOwnerSender(ownerCh)
 	go g.toCallerSender(callerCh)
 
-	sendGameRequest(g.bot, g.callerID)
+	sendGameRequest(g.bot, g.caller.ID)
 	for u := range g.callerCh {
 		if u.CallbackQuery.Data == "" {
 			continue
 		}
 		if u.CallbackQuery.Data == "No" {
-			ownerCh <- "u friend decline call"
+			ownerCh <- locale["u_friend_decline_call"][g.owner.GetLanguage()]
 			return
 		}
 		if u.CallbackQuery.Data == "Yes" {
@@ -53,8 +53,8 @@ func (g *game) Play(gamers map[int64]chan *teleapi.Update) {
 
 	// TODO: need to process yes/no answer
 
-	ownerCh <- "загадай четырехзначное число"
-	callerCh <- "загадай четырехзначное число"
+	ownerCh <- locale["wrote_ur_number_here"][g.owner.GetLanguage()]
+	callerCh <- locale["wrote_ur_number_here"][g.caller.GetLanguage()]
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
@@ -64,7 +64,7 @@ func (g *game) Play(gamers map[int64]chan *teleapi.Update) {
 				wg.Done()
 				break
 			}
-			ownerCh <- "wrong number"
+			ownerCh <- locale["wrong_number_try_again"][g.owner.GetLanguage()]
 			continue
 		}
 	}()
@@ -75,7 +75,7 @@ func (g *game) Play(gamers map[int64]chan *teleapi.Update) {
 				wg.Done()
 				break
 			}
-			callerCh <- "wrong number"
+			callerCh <- locale["wrong_number_try_again"][g.caller.GetLanguage()]
 			continue
 		}
 	}()
@@ -88,63 +88,63 @@ func (g *game) Play(gamers map[int64]chan *teleapi.Update) {
 	isOwnerMove := true
 	// true - owners move
 	// false - caller move
-	ownerCh <- "your move"
-	callerCh <- "opponents move"
+	ownerCh <- locale["ur_move"][g.owner.GetLanguage()]
+	callerCh <- locale["opponents_move"][g.caller.GetLanguage()]
 	// timeout :=
 	timer := time.NewTimer(20 * time.Minute)
 	for {
 		select {
 		case update := <-g.ownerCh:
 			if !isOwnerMove {
-				ownerCh <- "not your turn"
+				ownerCh <- locale["not_ur_turn"][g.owner.GetLanguage()]
 				continue
 			}
 			if !isValidNumber(update.Message.Text) {
-				ownerCh <- "not valid numbrer\ntry again"
+				ownerCh <- locale["wrong_number_try_again"][g.owner.GetLanguage()]
 				continue
 			}
-			t, c := countTandC(g.callerNumber, update.Message.Text)
+			t, c := countTandV(g.callerNumber, update.Message.Text)
 			if t == 4 {
-				ownerCh <- "you win"
-				callerCh <- "you lose"
-				callerCh <- "number was: " + g.ownerNumber
-				delete(gamers, g.ownerID)
-				delete(gamers, g.callerID)
+				ownerCh <- locale["u_win"][g.owner.GetLanguage()]
+				callerCh <- locale["u_lose"][g.caller.GetLanguage()]
+				callerCh <- locale["number_was"][g.caller.GetLanguage()] + g.ownerNumber
+				delete(gamers, g.owner.ID)
+				delete(gamers, g.caller.ID)
 				timer.Stop()
 				break
 			}
 			msg := fmt.Sprintf(string(ox)+" %d "+string(cow)+" %d", t, c)
 			isOwnerMove = !isOwnerMove
 			ownerCh <- msg
-			callerCh <- "now your turn"
+			callerCh <- locale["now_ur_turn"][g.caller.GetLanguage()]
 		case update := <-g.callerCh:
 			if isOwnerMove {
-				callerCh <- "not your turn"
+				callerCh <- locale["not_ur_turn"][g.owner.GetLanguage()]
 				continue
 			}
 			if !isValidNumber(update.Message.Text) {
-				callerCh <- "not valid numbrer\ntry again"
+				callerCh <- locale["wrong_number_try_again"][g.caller.GetLanguage()]
 				continue
 			}
-			t, c := countTandC(g.ownerNumber, update.Message.Text)
+			t, c := countTandV(g.ownerNumber, update.Message.Text)
 			if t == 4 {
-				callerCh <- "you win"
-				ownerCh <- "you lose"
-				ownerCh <- "number was: " + g.callerNumber
-				delete(gamers, g.ownerID)
-				delete(gamers, g.callerID)
+				callerCh <- locale["u_win"][g.caller.GetLanguage()]
+				ownerCh <- locale["u_lose"][g.owner.GetLanguage()]
+				ownerCh <- locale["number_was"][g.owner.GetLanguage()] + g.callerNumber
+				delete(gamers, g.owner.ID)
+				delete(gamers, g.caller.ID)
 				timer.Stop()
 				break
 			}
 			msg := fmt.Sprintf(string(ox)+" %d "+string(cow)+" %d", t, c)
 			isOwnerMove = !isOwnerMove
 			callerCh <- msg
-			ownerCh <- "now your move"
+			ownerCh <- locale["now_ur_turn"][g.owner.GetLanguage()]
 		case <-timer.C:
-			ownerCh <- "timeout"
-			callerCh <- "timeout"
-			delete(gamers, g.ownerID)
-			delete(gamers, g.callerID)
+			ownerCh <- locale["timeout"][g.owner.GetLanguage()]
+			callerCh <- locale["timeout"][g.caller.GetLanguage()]
+			delete(gamers, g.owner.ID)
+			delete(gamers, g.caller.ID)
 			timer.Stop()
 			break
 		}
@@ -161,19 +161,19 @@ var (
 )
 
 // New creates Game
-func New(bot teleapi.Bot, ownerID, callerID int64, ownerCh chan *teleapi.Update, callerCh chan *teleapi.Update) (Game, error) {
-	if ownerID == 0 {
+func New(bot teleapi.Bot, owner, caller teleapi.User, ownerCh chan *teleapi.Update, callerCh chan *teleapi.Update) (Game, error) {
+	if owner.ID == 0 {
 		log.Printf("[Warning] ownerID == 0")
 		return nil, ErrBadUserID
 	}
-	if callerID == 0 {
+	if caller.ID == 0 {
 		log.Printf("[Warning] callerID == 0")
 		return nil, ErrBadUserID
 	}
-	return &game{bot: bot, ownerID: ownerID, callerID: callerID, ownerCh: ownerCh, callerCh: callerCh}, nil
+	return &game{bot: bot, owner: owner, caller: caller, ownerCh: ownerCh, callerCh: callerCh}, nil
 }
 
-func countTandC(n1, n2 string) (t, c int) {
+func countTandV(n1, n2 string) (t, c int) {
 	for i, d1 := range n1 {
 		for j, d2 := range n2 {
 			if d1 == d2 {
@@ -227,14 +227,14 @@ func sendToPleer(bot teleapi.Bot, pleerID int64, msg string) {
 func (g *game) toOwnerSender(c chan string) {
 	for {
 		msg := <-c
-		sendToPleer(g.bot, g.ownerID, msg)
+		sendToPleer(g.bot, g.owner.ID, msg)
 	}
 }
 
 func (g *game) toCallerSender(c chan string) {
 	for {
 		msg := <-c
-		sendToPleer(g.bot, g.callerID, msg)
+		sendToPleer(g.bot, g.caller.ID, msg)
 	}
 }
 
@@ -261,4 +261,52 @@ func yesNoKeyboard() *teleapi.InlineKeyboardMarkup {
 	return &teleapi.InlineKeyboardMarkup{
 		InlineKeyboard: keyboard,
 	}
+}
+
+// code|locale|value tree
+var locale = map[string]map[string]string{
+	"ur_friend_decline_call": map[string]string{
+		"en": "Ur friend decline call",
+		"ru": "Друже не хочет играть",
+	},
+	"wrote_ur_number_here": map[string]string{
+		"en": "Wrote ur number here",
+		"ru": "Пиши свое число",
+	},
+	"wrong_number_try_again": map[string]string{
+		"en": "Wrong number, try again",
+		"ru": "Неправильное число, попробуй снова",
+	},
+	"ur_move": map[string]string{
+		"en": "Ur_move",
+		"ru": "Ходи!",
+	},
+	"opponents_move": map[string]string{
+		"en": "Opponents move",
+		"ru": "Ждем хода друже",
+	},
+	"not_ur_turn": map[string]string{
+		"en": "Not ur turn",
+		"ru": "Не спеши, сейчас ходит друже",
+	},
+	"u_win": map[string]string{
+		"en": "U win",
+		"ru": "ПОБЕДА!!! <3",
+	},
+	"u_lose": map[string]string{
+		"en": "U lose",
+		"ru": "Продул :(",
+	},
+	"number_was": map[string]string{
+		"en": "Number was: ",
+		"ru": "А число было: ",
+	},
+	"now_ur_turn": map[string]string{
+		"en": "Now ur turn",
+		"ru": "Твой ход!",
+	},
+	"timeout": map[string]string{
+		"en": "Timeout",
+		"ru": "Что-то очень долго, игра закончилась",
+	},
 }

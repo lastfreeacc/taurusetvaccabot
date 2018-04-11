@@ -138,3 +138,17 @@ func (m *Message) Command() string {
 	lst := strings.Index(cmd, "@")
 	return cmd[1:lst]
 }
+
+// GetLanguage ...
+func (u *User) GetLanguage() string {
+	return get2letters(u.LanguageCode)
+}
+
+func get2letters(s string) string {
+	if len([]rune(s)) < 2 {
+		return "en"
+	}
+	lowerRunes := []rune(strings.ToLower(s))
+	code := lowerRunes[:2]
+	return string(code)
+}
